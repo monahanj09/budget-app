@@ -93,7 +93,7 @@ st.header("Monthly Transactions")
 ## Select month and year for viewing and possible updating of starting monthly balance
 
 selected_month = st.selectbox("Month:", range(1, 13),
-                                         format_func=lambda month: calendar.month_name[month])
+                                         format_func=lambda month: calendar.month_name[month],index=date.today().month - 1)
 
 selected_year = st.number_input("Year:", min_value=2022, value=date.today().year)
 
@@ -232,6 +232,74 @@ column6.metric("Lowest Balance:", f"${lowest_balance:,.2f}")
 column7.metric("Lowest Balance Date:", lowest_balance_date.strftime("%m/%d/%Y"))
 column8.metric("Shared Expenses:", f"${shared_expenses:,.2f}")
 column9.metric("50% of Shared Expenses:", f"${shared_expenses/2:,.2f}")
+
+## Build and pass data to calendar for easier visual tracking
+
+st.header("Cash Flow Calendar")
+
+weekday_columns = st.columns(7)
+
+weekdays = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday"
+]
+
+for column, weekday in zip(weekday_columns, weekdays):
+    column.markdown(f"**{weekday}**")
+
+month_calendar = calendar.Calendar(firstweekday=6)
+
+calendar_weeks = month_calendar.monthdayscalendar(
+    selected_year,
+    selected_month
+)
+
+for week in calendar_weeks:
+
+    week_columns = st.columns(7)
+
+    for column, day in zip(week_columns, week):
+
+        if day != 0:
+            calendar_date = pd.Timestamp(
+            year=selected_year,
+            month=selected_month,
+            day=day
+        )
+
+            day_balance = daily_balances.loc[
+            daily_balances["Date"] == calendar_date,
+            "End Balance"
+            ].iloc[0]
+
+            column.markdown(f"**{day}**")
+
+            if transactions:
+
+                day_transactions = dataframe[dataframe["Date"] == calendar_date]
+
+                for _, transaction in day_transactions.iterrows():
+
+                    if transaction["Type"] == "Expense":
+                        transaction_amount = transaction["Amount ($)"]
+                        formatted_amount = f"-${transaction_amount:,.2f}"
+                        transaction_color = "red"
+                    else: 
+                        transaction_amount = transaction["Amount ($)"]
+                        formatted_amount = f"+${transaction_amount:,.2f}"
+                        transaction_color = "green"
+
+                    column.markdown(
+                        f'<span style="color: {transaction_color};">{transaction["Description"]}: {formatted_amount}</span>',
+                        unsafe_allow_html=True
+                        )
+
+            column.markdown(f"**Balance: ${day_balance:,.2f}**")
 
 if transactions:
 
