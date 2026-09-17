@@ -277,29 +277,37 @@ for week in calendar_weeks:
             "End Balance"
             ].iloc[0]
 
-            column.markdown(f"**{day}**")
+            with column.container(border=True, height=250):
 
-            if transactions:
+                st.markdown(f"**{day}**")
 
-                day_transactions = dataframe[dataframe["Date"] == calendar_date]
 
-                for _, transaction in day_transactions.iterrows():
+                if transactions:
 
-                    if transaction["Type"] == "Expense":
-                        transaction_amount = transaction["Amount ($)"]
-                        formatted_amount = f"-${transaction_amount:,.2f}"
-                        transaction_color = "red"
-                    else: 
-                        transaction_amount = transaction["Amount ($)"]
-                        formatted_amount = f"+${transaction_amount:,.2f}"
-                        transaction_color = "green"
+                    day_transactions = dataframe[dataframe["Date"] == calendar_date]
 
-                    column.markdown(
-                        f'<span style="color: {transaction_color};">{transaction["Description"]}: {formatted_amount}</span>',
-                        unsafe_allow_html=True
-                        )
+                    for _, transaction in day_transactions.iterrows():
 
-            column.markdown(f"**Balance: ${day_balance:,.2f}**")
+                        if transaction["Type"] == "Expense":
+                            transaction_amount = transaction["Amount ($)"]
+                            formatted_amount = f"-${transaction_amount:,.2f}"
+                            transaction_color = "red"
+                        else: 
+                            transaction_amount = transaction["Amount ($)"]
+                            formatted_amount = f"+${transaction_amount:,.2f}"
+                            transaction_color = "green"
+
+                        st.markdown(
+                            f'<span style="color: {transaction_color};">{transaction["Description"]}: {formatted_amount}</span>',
+                            unsafe_allow_html=True
+                            )
+
+                if day_balance < 0:
+                    st.markdown(
+                        f'<span style="color: red; font-weight: bold;">Balance: -${abs(day_balance):,.2f}</span>',
+                        unsafe_allow_html=True)
+                else:
+                    st.markdown(f"**Balance: ${day_balance:,.2f}**")
 
 if transactions:
 
