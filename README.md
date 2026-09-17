@@ -32,6 +32,9 @@ The project began as a replacement for a spreadsheet-based household budgeting s
 - Carry balances forward through days without transactions
 - Project the end-of-month balance
 - Identify the lowest projected balance and its date
+- Display transactions and projected balances in a monthly calendar
+- Color-code expenses and positive cash flow
+- Highlight projected negative balances
 
 ### Shared Expenses
 - Mark expenses as shared
@@ -54,37 +57,36 @@ budget-app/
 ├── database.py     # SQLite database operations
 ├── .gitignore
 └── README.md
+```
 
 The local SQLite database is intentionally excluded from version control because it may contain personal financial data.
 
-Roadmap
-v0.4 — Calendar View
-Monthly calendar-based cash-flow visualization
-Display transactions on their scheduled dates
-Display projected daily balances
-Visually distinguish positive and negative cash flow
-v0.5 — Recurring Transactions
-Recurring bills
-Recurring income/paychecks
-Automatic monthly transaction generation
-Support for fixed and variable recurring obligations
-Future Ideas
-Configurable shared-expense percentages
-Household/member configuration
-Improved reporting and visualization
-Budget categories and spending analysis
-Data import/export
-Optional financial-account integrations
-Deployment as a hosted application
-Development Status
+## Roadmap
+
+### v0.5 — Recurring Transactions
+- Recurring bills
+- Recurring income/paychecks
+- Automatic monthly transaction generation
+- Support for fixed and variable recurring obligations
+
+### Future Ideas
+- Configurable shared-expense percentages
+- Household/member configuration
+- Improved reporting and visualization
+- Budget categories and spending analysis
+- Data import/export
+- Optional financial-account integrations
+- Deployment as a hosted application
+
+## Development Status
 
 The project is currently in active development.
 
-Current version: v0.3
+Current version: **v0.4**
 
-v0.3 introduced shared-expense tracking, reimbursement transactions, and improvements to the monthly cash-flow model.
+v0.4 introduced a monthly cash-flow calendar displaying scheduled transactions, projected daily balances, color-coded cash flow, and visual warnings for negative projected balances.
 
-Privacy
+## Privacy
 
 Financial data is stored locally in SQLite and the database file is excluded from this repository.
 
