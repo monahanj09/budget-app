@@ -10,7 +10,11 @@ from database import (
     delete_transaction,
     update_transaction,
     set_starting_balance,
-    get_starting_balance
+    get_starting_balance,
+    add_recurring_transaction,
+    get_recurring_transactions,
+    delete_recurring_transaction,
+    set_recurring_transaction_active
 )
 
 
@@ -50,10 +54,10 @@ categories = [
 
 st.header("Add Transaction")
 
-## Create the add transaction form and store all input in requisite variables
+## Create the add transaction form(s) and store all input in requisite variables
 
 with st.form("transaction_form"):
-    transaction_date = st.date_input("Date:", value =date.today(), format="MM/DD/YYYY")
+    transaction_date = st.date_input("Date:", value=date.today(), format="MM/DD/YYYY")
 
     transaction_type = st.radio("Transaction Type:", ["Expense", "Income", "Reimbursement"], horizontal = True)
 
@@ -68,6 +72,27 @@ with st.form("transaction_form"):
     transaction_notes = st.text_area("Notes:")
 
     submitted = st.form_submit_button("Add Transaction")
+
+st.header("Add Recurring Transaction")
+
+with st.form("recurring_transaction_form"):
+    recur_name = st.text_input("Name of recurring transaction:", "")
+
+    recur_amount = st.number_input("Recurring Amount:", min_value=0.00, step=1.0, format="%.2f")
+
+    recur_type = st.radio("Recurring Type:", ["Expense", "Income", "Reimbursement"], horizontal = True)
+
+    recur_category = st.selectbox("Category:", categories)
+
+    recur_shared = st.checkbox("Shared Recurring Expense")
+
+    recur_notes = st.text_area("Notes:")
+
+    recur_start_date = st.date_input("Start Date:", value=date.today(), format="MM/DD/YYYY")
+
+    recur_frequency = st.radio("Frequency of Recurrence:", ["Weekly", "Biweekly", "Monthly"], index=2, horizontal=True)
+
+    recur_submitted = st.form_submit_button("Add Recurring Transaction")
 
 if submitted:
 
@@ -87,6 +112,84 @@ if submitted:
                         shared=int(transaction_shared), 
                         notes=transaction_notes)
         st.success("Transaction submitted successfully.")
+
+if recur_submitted:
+
+    if not recur_name.strip():
+        st.error("You must enter a name for a recurring transaction.")
+    elif recur_amount <= 0:
+        st.error("Recurring transaction amount must be at least $0.01")
+    else:
+        add_recurring_transaction(name=recur_name.strip(),
+                                  expected_amount=recur_amount,
+                                  type=recur_type,
+                                  category=recur_category,
+                                  shared=int(recur_shared),
+                                  notes=recur_notes,
+                                  start_date=recur_start_date.isoformat(),
+                                  frequency=recur_frequency)
+        st.success("Recurring transaction created successfully.")
+
+st.header("Recurring Transactions")
+
+recurring_transactions = get_recurring_transactions()
+
+if recurring_transactions:
+    recurring_dataframe = pd.DataFrame(
+        recurring_transactions,
+        columns=["ID", "Name", "Expected Amount", "Type", "Category", "Shared", "Notes", "Start Date", "Frequency", "Active"]
+    )
+
+    recurring_dataframe["Start Date"] = pd.to_datetime(
+        recurring_dataframe["Start Date"]
+    )
+
+    recurring_dataframe["Shared"] = recurring_dataframe["Shared"].map({
+                        0: "No",
+                        1: "Yes"})
+    recurring_dataframe["Active"] = recurring_dataframe["Active"].map({
+                        0: "No",
+                        1: "Yes"})
+    
+    recurring_table = st.dataframe(recurring_dataframe, hide_index=True, on_select="rerun", selection_mode="multi-row", column_config={
+        "Expected Amount": st.column_config.NumberColumn(
+        "Expected Amount",
+        format="$%.2f"
+        ),
+        "Start Date": st.column_config.DateColumn(
+            "Start Date",
+            format="MM/DD/YYYY"
+        ),
+        "ID": None
+    })
+
+    if recurring_table.selection.rows:
+
+        selected_recur_rows = recurring_table.selection.rows
+        selected_rules = recurring_dataframe.iloc[selected_recur_rows]
+        selected_rule_ids = selected_rules["ID"].tolist()
+
+        if st.button("Delete Selected"):
+            for rule_id in selected_rule_ids:
+                delete_recurring_transaction(rule_id)
+            st.rerun()
+
+        if st.button("Deactivate Selected"):
+            for rule_id in selected_rule_ids:
+                set_recurring_transaction_active(rule_id, 0)
+            st.rerun()
+
+        if st.button("Reactivate Selected"):
+            for rule_id in selected_rule_ids:
+                set_recurring_transaction_active(rule_id, 1)
+            st.rerun()
+
+
+
+
+
+else:
+    st.info("No recurring transactions have been created.")
 
 st.header("Monthly Transactions")
 

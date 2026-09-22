@@ -26,6 +26,7 @@ def create_tables():
             category TEXT,
             shared INTEGER NOT NULL DEFAULT 0,
             notes TEXT,
+            recurring_rule_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -39,6 +40,30 @@ def create_tables():
                 PRIMARY KEY (year, month)
             )
         """)
+
+    cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recurring_transactions (
+                id INTEGER primary key AUTOINCREMENT,
+                name TEXT NOT NULL,
+                expected_amount REAL NOT NULL,
+                type TEXT NOT NULL,
+                category TEXT,
+                shared INTEGER NOT NULL DEFAULT 0,
+                notes TEXT,
+                start_date TEXT NOT NULL,
+                frequency TEXT NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+    cursor.execute("PRAGMA table_info(transactions)")
+    columns = cursor.fetchall()
+    column_names = [column[1] for column in columns]
+
+    if "recurring_rule_id" not in column_names:
+
+        cursor.execute("ALTER TABLE transactions ADD COLUMN recurring_rule_id INTEGER")
 
     connection.commit()
     connection.close()
@@ -225,3 +250,96 @@ def get_starting_balance(year, month):
         return result[0]
     else:
         return 0.00
+
+def add_recurring_transaction(
+        name,
+        expected_amount,
+        type,
+        category,
+        shared,
+        notes,
+        start_date,
+        frequency
+):
+    """Add a recurring transaction to the database."""
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        INSERT INTO recurring_transactions
+        (name, expected_amount, type, category, shared, notes, start_date, frequency)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        name,
+        expected_amount,
+        type,
+        category,
+        shared,
+        notes,
+        start_date,
+        frequency
+    ))
+
+    connection.commit()
+    connection.close()
+
+def get_recurring_transactions():
+    """Return all recurring transaction rules."""
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            id,
+            name,
+            expected_amount,
+            type,
+            category,
+            shared,
+            notes,
+            start_date,
+            frequency,
+            active
+        FROM recurring_transactions
+        ORDER BY start_date, id
+    """)
+
+    recurring_transactions = cursor.fetchall()
+
+    connection.close()
+
+    return recurring_transactions
+
+def delete_recurring_transaction(rule_id):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+
+    """
+        DELETE FROM recurring_transactions
+        WHERE id = ?
+        """,
+        (rule_id,)
+    )
+
+    connection.commit()
+    connection.close()
+
+def set_recurring_transaction_active(rule_id, active):
+    """Set recurring transactions active/inactive"""
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        UPDATE recurring_transactions
+        SET active = ?
+        WHERE id = ?
+        """,
+        (active, rule_id)
+    )
+    connection.commit()
+    connection.close()
