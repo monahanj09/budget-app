@@ -1,4 +1,6 @@
 import sqlite3
+import calendar
+from datetime import date, timedelta
 from pathlib import Path
 
 
@@ -27,6 +29,7 @@ def create_tables():
             shared INTEGER NOT NULL DEFAULT 0,
             notes TEXT,
             recurring_rule_id INTEGER,
+            recurring_occurrence_date TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -64,6 +67,10 @@ def create_tables():
     if "recurring_rule_id" not in column_names:
 
         cursor.execute("ALTER TABLE transactions ADD COLUMN recurring_rule_id INTEGER")
+
+    if "recurring_occurrence_date" not in column_names:
+
+        cursor.execute("ALTER TABLE transactions ADD COLUMN recurring_occurrence_date TEXT")
 
     connection.commit()
     connection.close()
@@ -108,7 +115,9 @@ def add_transaction(
     transaction_type,
     category,
     shared,
-    notes
+    notes,
+    recurring_rule_id=None,
+    recurring_occurrence_date=None
 ):
     """Add a transaction to the database."""
 
@@ -117,8 +126,8 @@ def add_transaction(
 
     cursor.execute("""
         INSERT INTO transactions
-        (date, name, amount, type, category, shared, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        (date, name, amount, type, category, shared, notes, recurring_rule_id, recurring_occurrence_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         date,
         name,
@@ -126,7 +135,9 @@ def add_transaction(
         transaction_type,
         category,
         shared,
-        notes
+        notes,
+        recurring_rule_id,
+        recurring_occurrence_date
     ))
 
     connection.commit()
@@ -150,7 +161,8 @@ def get_transactions(year, month):
             type,
             category,
             shared,
-            notes
+            notes,
+            recurring_rule_id
         FROM transactions
         WHERE substr(date, 1, 7) = ?
         ORDER BY date, id
@@ -316,6 +328,11 @@ def delete_recurring_transaction(rule_id):
     connection = get_connection()
     cursor = connection.cursor()
 
+
+    cursor.execute("""
+        DELETE FROM transactions
+        WHERE recurring_rule_id = ?
+        """, (rule_id,))
     cursor.execute(
 
     """
@@ -329,7 +346,7 @@ def delete_recurring_transaction(rule_id):
     connection.close()
 
 def set_recurring_transaction_active(rule_id, active):
-    """Set recurring transactions active/inactive"""
+    """Set recurring transactions as active or inactive"""
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -343,3 +360,102 @@ def set_recurring_transaction_active(rule_id, active):
     )
     connection.commit()
     connection.close()
+
+def recurring_occurrence_exists(rule_id, occurrence_date):
+    """Check whether a recurring transaction occurrence has already been generated"""
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT 1
+        FROM transactions
+        WHERE recurring_rule_id = ?
+        AND recurring_occurrence_date = ?
+        LIMIT 1
+        """, (rule_id, occurrence_date)
+    )
+
+    result = cursor.fetchone()
+    connection.close()
+
+    return result is not None
+
+def get_occurrences_for_month(start_date, frequency, year, month):
+    """Return recurring occurrence dates for a specified month."""
+
+    occurrences = []
+
+    start_date = date.fromisoformat(start_date)
+
+    month_start = date(year, month, 1)
+
+    month_end = date(
+        year,
+        month,
+        calendar.monthrange(year, month)[1]
+    )
+
+    current_date = start_date
+
+    if frequency == "Weekly":
+        interval_days = 7
+    elif frequency == "Biweekly":
+        interval_days = 14
+    else:
+        interval_days=None
+
+    if interval_days is not None:
+
+        while current_date <= month_end:
+
+            if current_date >= month_start:
+
+                occurrences.append(current_date)
+
+            current_date += timedelta(days=interval_days)
+
+
+    if frequency == "Monthly":
+
+        intended_day = start_date.day
+
+        days_in_month = calendar.monthrange(year, month)[1]
+
+        occurrence_day = min(intended_day, days_in_month)
+
+        occurrence_date = date(year, month, occurrence_day)
+
+        if occurrence_date >= start_date:
+
+            occurrences.append(occurrence_date)
+
+    return occurrences
+
+def generate_recurring_transactions(year, month):
+
+    """Generate missing recurring transactions for a specified month."""
+
+    recurring_rules = get_recurring_transactions()
+
+    for rule in recurring_rules:
+
+        if rule[9] == 1:
+
+            occurrences = get_occurrences_for_month(rule[7], rule[8], year, month)
+
+            for occurrence in occurrences:
+
+                if not recurring_occurrence_exists(rule[0], occurrence.isoformat()):
+
+                    add_transaction(
+                        date = occurrence.isoformat(),
+                        name = rule[1],
+                        amount = rule[2],
+                        transaction_type = rule[3],
+                        category = rule[4],
+                        shared = rule[5],
+                        notes = rule[6],
+                        recurring_rule_id = rule[0],
+                        recurring_occurrence_date = occurrence.isoformat()
+                    )

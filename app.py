@@ -14,7 +14,8 @@ from database import (
     add_recurring_transaction,
     get_recurring_transactions,
     delete_recurring_transaction,
-    set_recurring_transaction_active
+    set_recurring_transaction_active,
+    generate_recurring_transactions
 )
 
 
@@ -218,6 +219,8 @@ if save_starting_balance:
     )
     st.rerun()
 
+generate_recurring_transactions(selected_year, selected_month)
+
 transactions = get_transactions(selected_year, selected_month)
 
 last_day = calendar.monthrange(selected_year, selected_month)[1]
@@ -233,7 +236,7 @@ if transactions:
 
     dataframe = pd.DataFrame(
         transactions,
-        columns=["ID", "Date", "Description", "Amount ($)", "Type", "Category", "Shared", "Notes"]
+        columns=["ID", "Date", "Description", "Amount ($)", "Type", "Category", "Shared", "Notes", "Recurring Rule ID"]
     )
 
     dataframe["Cash Flow"] = dataframe.apply(
@@ -426,29 +429,41 @@ if transactions:
             format="$%.2f"
         ),
         "Cash Flow": None,
-        "ID": None
+        "ID": None,
+        "Recurring Rule ID": None
         
     })
 
     selected_rows = table_event.selection.rows
 
     selected_ids = []
+    deletable_ids = []
+    recurring_transaction_ids = []
 
     ## Delete unnecessary entries
 
     for row_position in selected_rows:
         transaction_id = int(dataframe.iloc[row_position]["ID"])
+        recurring_transaction_id = dataframe.iloc[row_position]["Recurring Rule ID"]
+
         selected_ids.append(transaction_id)
+
+        if pd.isna(recurring_transaction_id):
+            deletable_ids.append(transaction_id)
+        else:
+            recurring_transaction_ids.append(transaction_id)
 
     delete_clicked = st.button("Delete Selected Transactions")
 
     if delete_clicked:
 
-        if selected_ids == []:
+        if not selected_ids and not recurring_transaction_ids:
             st.error("No transaction(s) selected for deletion")
         else:
             for transaction_id in selected_ids:
                 delete_transaction(transaction_id)
+            if recurring_transaction_ids:
+                st.info("Recurring transactions were not deleted.")
             st.rerun()
 
     ## Edit entries

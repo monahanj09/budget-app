@@ -18,6 +18,16 @@ The project began as a replacement for a spreadsheet-based household budgeting s
 - Add optional notes
 - Mark expenses as shared
 
+### Recurring Transactions
+- Create recurring expenses, income, and reimbursements
+- Support weekly, biweekly, and monthly schedules
+- Automatically generate recurring transactions when viewing a month
+- Prevent duplicate recurring transaction generation
+- Activate and deactivate recurring rules
+- Edit individual generated transactions without modifying the recurring rule
+- Adjust generated transaction dates while preserving their scheduled occurrence
+- Delete recurring rules and their associated generated transactions
+
 ### Monthly Budgeting
 - Set a starting balance for each month
 - View transactions by month and year
@@ -63,12 +73,6 @@ The local SQLite database is intentionally excluded from version control because
 
 ## Roadmap
 
-### v0.5 — Recurring Transactions
-- Recurring bills
-- Recurring income/paychecks
-- Automatic monthly transaction generation
-- Support for fixed and variable recurring obligations
-
 ### Future Ideas
 - Configurable shared-expense percentages
 - Household/member configuration
@@ -82,9 +86,9 @@ The local SQLite database is intentionally excluded from version control because
 
 The project is currently in active development.
 
-Current version: **v0.4**
+Current version: **v0.5**
 
-v0.4 introduced a monthly cash-flow calendar displaying scheduled transactions, projected daily balances, color-coded cash flow, and visual warnings for negative projected balances.
+v0.5 introduced recurring transaction rules with weekly, biweekly, and monthly schedules. Recurring transactions are generated automatically as months are viewed while preventing duplicate occurrences. Individual generated transactions can be edited independently of their recurring rule, including adjustments to amount and date. Rules can be deactivated to stop future generation or deleted along with their associated generated transactions.
 
 ## Privacy
 
