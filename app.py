@@ -5,12 +5,18 @@ from datetime import date
 
 from database import (
     create_tables,
+    set_starting_balance,
+    get_starting_balance,
+)
+
+from transactions import(
     add_transaction,
     get_transactions,
     delete_transaction,
     update_transaction,
-    set_starting_balance,
-    get_starting_balance,
+)
+
+from recurring import(
     add_recurring_transaction,
     get_recurring_transactions,
     delete_recurring_transaction,
@@ -460,7 +466,7 @@ if transactions:
         if not selected_ids and not recurring_transaction_ids:
             st.error("No transaction(s) selected for deletion")
         else:
-            for transaction_id in selected_ids:
+            for transaction_id in deletable_ids:
                 delete_transaction(transaction_id)
             if recurring_transaction_ids:
                 st.info("Recurring transactions were not deleted.")
