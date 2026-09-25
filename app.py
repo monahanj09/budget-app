@@ -24,6 +24,9 @@ from recurring import(
     generate_recurring_transactions
 )
 
+from cashflow import(
+    analyze_cashflow
+)
 
 # Create database tables when the app starts
 create_tables()
@@ -269,6 +272,8 @@ daily_balances["End Balance"] = starting_balance + daily_balances["Cash Flow"].c
 
 daily_balances["Start Balance"] = daily_balances["End Balance"].shift(1).fillna(starting_balance)
 
+cashflow_analysis = analyze_cashflow(daily_balances)
+
 daily_display = daily_balances[["Date", "Start Balance", "End Balance"]].copy()
 
 daily_display["Date"] = daily_display["Date"].dt.strftime("%m/%d/%Y")
@@ -334,6 +339,31 @@ else:
 column1, column2, column3, column4 = st.columns(4)
 column5, column6, column7 = st.columns(3)
 column8, column9 = st.columns(2)
+
+if cashflow_analysis["has_shortfall"]:
+
+    first_negative_date = cashflow_analysis["first_negative_date"]
+    minimum_cash_needed = cashflow_analysis["minimum_cash_needed"]
+    recovery_date = cashflow_analysis["recovery_date"]
+
+    if recovery_date is not None:
+
+        additional_warning = (f"Projected recovery date: "
+                              f"{recovery_date.strftime('%m/%d/%Y')}."
+        )
+
+    else:
+
+        additional_warning = "Projected recovery date: Account does not recover before end of selected month"
+
+    warning_message = (
+    f"Projected cash shortfall detected.\n\n "
+    f"First negative balance: {first_negative_date.strftime('%m/%d/%Y')}.\n\n "
+    f"Minimum additional cash needed: ${minimum_cash_needed:,.2f}.\n\n "
+    )
+    warning_message += additional_warning
+
+    st.warning(warning_message)
 
 column1.metric("Income:", f"${income:,.2f}")
 column2.metric("Reimbursements:", f"${reimbursements:,.2f}")
