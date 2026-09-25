@@ -58,6 +58,13 @@ def create_tables():
                 )
             """)
 
+    cursor.execute("""
+            CREATE TABLE IF NOT EXISTS settings(
+            key TEXT PRIMARY KEY,
+            value TEXT
+            )
+        """)
+
     cursor.execute("PRAGMA table_info(transactions)")
     columns = cursor.fetchall()
     column_names = [column[1] for column in columns]
@@ -145,3 +152,44 @@ def get_starting_balance(year, month):
         return result[0]
     else:
         return 0.00
+
+def get_setting(key):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT value
+        FROM settings
+        WHERE key = ?
+        """,
+    (key,)
+    )
+
+    result = cursor.fetchone()
+    connection.close()
+
+    if result:
+        return result[0]
+    else:
+        return None
+
+def set_setting(key, value):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        INSERT INTO settings
+        (key, value)
+        VALUES (?, ?)
+
+        ON CONFLICT(key)
+        DO UPDATE SET value = excluded.value
+        """,
+            (
+                key,
+                value
+            )
+    )
+
+    connection.commit()
+    connection.close()
