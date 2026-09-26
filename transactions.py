@@ -9,7 +9,8 @@ def add_transaction(
     shared,
     notes,
     recurring_rule_id=None,
-    recurring_occurrence_date=None
+    recurring_occurrence_date=None,
+    shared_members=None
 ):
     """Add a transaction to the database."""
 
@@ -18,8 +19,8 @@ def add_transaction(
 
     cursor.execute("""
         INSERT INTO transactions
-        (date, name, amount, type, category, shared, notes, recurring_rule_id, recurring_occurrence_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (date, name, amount, type, category, shared, shared_members, notes, recurring_rule_id, recurring_occurrence_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         date,
         name,
@@ -27,6 +28,7 @@ def add_transaction(
         transaction_type,
         category,
         shared,
+        shared_members,
         notes,
         recurring_rule_id,
         recurring_occurrence_date
@@ -53,6 +55,7 @@ def get_transactions(year, month):
             type,
             category,
             shared,
+            shared_members,
             notes,
             recurring_rule_id
         FROM transactions
@@ -91,6 +94,7 @@ def update_transaction(
         transaction_type,
         category,
         shared,
+        shared_members,
         notes
 ):
         connection = get_connection()
@@ -98,7 +102,7 @@ def update_transaction(
 
         cursor.execute("""
         UPDATE transactions
-        SET date = ?, name = ?, amount = ?, type = ?, category = ?, shared = ?, notes = ?
+        SET date = ?, name = ?, amount = ?, type = ?, category = ?, shared = ?, shared_members = ?, notes = ?
         WHERE id = ?
     """, (
         date,
@@ -107,6 +111,7 @@ def update_transaction(
         transaction_type,
         category,
         shared,
+        shared_members,
         notes,
         transaction_id
     ))

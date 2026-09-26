@@ -73,9 +73,21 @@ def create_tables():
 
         cursor.execute("ALTER TABLE transactions ADD COLUMN recurring_rule_id INTEGER")
 
+    if "shared_members" not in column_names:
+
+        cursor.execute("ALTER TABLE transactions ADD COLUMN shared_members INTEGER")
+
     if "recurring_occurrence_date" not in column_names:
 
         cursor.execute("ALTER TABLE transactions ADD COLUMN recurring_occurrence_date TEXT")
+
+    cursor.execute("PRAGMA table_info(recurring_transactions)")
+    columns = cursor.fetchall()
+    column_names = [column[1] for column in columns]
+
+    if "shared_members" not in column_names:
+
+        cursor.execute("ALTER TABLE recurring_transactions ADD COLUMN shared_members INTEGER")
 
     connection.commit()
     connection.close()

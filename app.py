@@ -35,8 +35,8 @@ create_tables()
 
 
 st.set_page_config(
-    page_title="Budget App",
-    page_icon="💰",
+    page_title="FlowAhead",
+    page_icon="📈",
     layout="wide"
 )
 
@@ -82,7 +82,7 @@ if household_size_setting is None:
 
 else: 
 
-    household_size= int(household_size_setting)    
+    household_size=int(household_size_setting)    
 
     st.sidebar.header("Settings")
 
@@ -101,6 +101,21 @@ st.header("Add Transaction")
 
 ## Create the add transaction form(s) and store all input in requisite variables
 
+transaction_shared = False
+transaction_shared_members = None
+
+if household_size > 1:
+
+    transaction_shared = st.checkbox("Shared Expense")
+
+    if transaction_shared:
+
+        transaction_shared_members = st.number_input("How many people split this transaction? (including you)", 
+                        min_value=2, 
+                        max_value=household_size, 
+                        value=household_size,
+                        step=1)
+
 with st.form("transaction_form"):
     transaction_date = st.date_input("Date:", value=date.today(), format="MM/DD/YYYY")
 
@@ -112,13 +127,26 @@ with st.form("transaction_form"):
 
     transaction_category = st.selectbox("Category:", categories)
 
-    transaction_shared = st.checkbox("Shared Expense")
-
     transaction_notes = st.text_area("Notes:")
 
     submitted = st.form_submit_button("Add Transaction")
 
 st.header("Add Recurring Transaction")
+
+recur_shared = False
+recur_shared_members = None
+
+if household_size > 1:
+
+    recur_shared = st.checkbox("Shared Recurring Expense")
+
+    if recur_shared:
+
+        recur_shared_members = st.number_input("How many people split this transaction? (including you)", 
+            min_value=2, 
+            max_value=household_size, 
+            value=household_size,
+            step=1)
 
 with st.form("recurring_transaction_form"):
     recur_name = st.text_input("Name of recurring transaction:", "")
@@ -128,8 +156,6 @@ with st.form("recurring_transaction_form"):
     recur_type = st.radio("Recurring Type:", ["Expense", "Income", "Reimbursement"], horizontal = True)
 
     recur_category = st.selectbox("Category:", categories)
-
-    recur_shared = st.checkbox("Shared Recurring Expense")
 
     recur_notes = st.text_area("Notes:")
 
@@ -155,7 +181,8 @@ if submitted:
                         transaction_type=transaction_type, 
                         category=transaction_category, 
                         shared=int(transaction_shared), 
-                        notes=transaction_notes)
+                        notes=transaction_notes,
+                        shared_members = transaction_shared_members)
         st.success("Transaction submitted successfully.")
 
 if recur_submitted:
@@ -170,6 +197,7 @@ if recur_submitted:
                                   type=recur_type,
                                   category=recur_category,
                                   shared=int(recur_shared),
+                                  shared_members=recur_shared_members,
                                   notes=recur_notes,
                                   start_date=recur_start_date.isoformat(),
                                   frequency=recur_frequency)
@@ -182,7 +210,7 @@ recurring_transactions = get_recurring_transactions()
 if recurring_transactions:
     recurring_dataframe = pd.DataFrame(
         recurring_transactions,
-        columns=["ID", "Name", "Expected Amount", "Type", "Category", "Shared", "Notes", "Start Date", "Frequency", "Active"]
+        columns=["ID", "Name", "Expected Amount", "Type", "Category", "Shared", "Shared Members", "Notes", "Start Date", "Frequency", "Active"]
     )
 
     recurring_dataframe["Start Date"] = pd.to_datetime(
@@ -280,7 +308,7 @@ if transactions:
 
     dataframe = pd.DataFrame(
         transactions,
-        columns=["ID", "Date", "Description", "Amount ($)", "Type", "Category", "Shared", "Notes", "Recurring Rule ID"]
+        columns=["ID", "Date", "Description", "Amount ($)", "Type", "Category", "Shared", "Shared Members", "Notes", "Recurring Rule ID"]
     )
 
     dataframe["Cash Flow"] = dataframe.apply(
@@ -338,10 +366,36 @@ if transactions:
     expenses = dataframe[dataframe["Type"] == "Expense"] ["Amount ($)"].sum()
     reimbursements = dataframe[dataframe["Type"] == "Reimbursement"]["Amount ($)"].sum()
 
+    incomplete_shared_expenses = dataframe[
+        (dataframe["Type"] == "Expense") & 
+        (dataframe["Shared"] == "Yes") &
+        (dataframe["Shared Members"].isna())
+    ]
+
+    incomplete_shared_count = len(incomplete_shared_expenses)
+
+    if incomplete_shared_count > 0:
+
+        if incomplete_shared_count == 1:
+            transaction_word = "transaction"
+        else:
+            transaction_word = "transactions"
+
+        st.warning(
+            f"{incomplete_shared_count} shared {transaction_word} are missing split information. "
+            f"Edit these {transaction_word} and specify how many people shared the expense. "
+            f"They are excluded from Shared Expenses and Expected Reimbursement calculations until corrected."
+        )
+
     shared_expense_dataframe = dataframe[
         (dataframe["Type"] == "Expense") &
-        (dataframe["Shared"] == "Yes")
-    ]
+        (dataframe["Shared"] == "Yes") &
+        (dataframe["Shared Members"] > 1)
+    ].copy()
+
+    shared_expense_dataframe["User Share"] = shared_expense_dataframe["Amount ($)"] / shared_expense_dataframe["Shared Members"]
+    shared_expense_dataframe["Others Share"] = shared_expense_dataframe["Amount ($)"] - shared_expense_dataframe["User Share"]
+    expected_reimbursement = shared_expense_dataframe["Others Share"].sum()
 
     shared_expenses = shared_expense_dataframe["Amount ($)"].sum()
 
@@ -351,6 +405,7 @@ else:
     expenses = 0.0
     reimbursements = 0.0
     shared_expenses = 0.0
+    expected_reimbursement = 0.0
 
 net_cash_flow = income + reimbursements - expenses
 
@@ -408,7 +463,7 @@ column5.metric("Projected End Balance:", f"${projected_end_balance:,.2f}")
 column6.metric("Lowest Balance:", f"${lowest_balance:,.2f}")
 column7.metric("Lowest Balance Date:", lowest_balance_date.strftime("%m/%d/%Y"))
 column8.metric("Shared Expenses:", f"${shared_expenses:,.2f}")
-column9.metric("50% of Shared Expenses:", f"${shared_expenses/2:,.2f}")
+column9.metric("Expected Reimbursement:", f"${expected_reimbursement:,.2f}")
 
 ## Build and pass data to calendar for easier visual tracking
 
@@ -557,19 +612,40 @@ if transactions:
 
             edit_transaction = dataframe[dataframe["ID"] == st.session_state["edit_id"]].iloc[0]
 
+
+            if pd.isna(edit_transaction["Shared Members"]):
+                current_shared_members = household_size
+            else:
+                current_shared_members = int(edit_transaction["Shared Members"])
+
+            edit_shared_members_max = max(household_size, current_shared_members)
+
+            edit_shared = edit_transaction["Shared"] == "Yes"
+            edit_shared_members = None
+
+            if household_size > 1 or edit_shared:
+
+                edit_shared = st.checkbox("Shared Expense", value=edit_transaction["Shared"] == "Yes")
+
+                if edit_shared:
+
+                    edit_shared_members = st.number_input("How many people split this transaction? (including you)", 
+                        min_value=2, 
+                        max_value=edit_shared_members_max, 
+                        value=current_shared_members,
+                        step=1)
+
             with st.form("edit_transaction_form"):
 
                 type_options = ["Expense", "Income", "Reimbursement"]
                 current_type_index = type_options.index(edit_transaction["Type"])
 
                 current_category_index = categories.index(edit_transaction["Category"])
-
                 edit_date = st.date_input("Date:", value=edit_transaction["Date"])
                 edit_description = st.text_input("Description:", value=edit_transaction["Description"])
                 edit_amount = st.number_input("Amount ($):", value=float(edit_transaction["Amount ($)"]))
                 edit_type = st.radio("Transaction Type:", type_options, index=current_type_index, horizontal=True)
                 edit_category = st.selectbox("Transaction Category:", categories, index=current_category_index)
-                edit_shared = st.checkbox("Shared Expense", value=edit_transaction["Shared"] == "Yes")
                 edit_notes = st.text_area("Notes:", value=edit_transaction["Notes"])
 
                 save_changes = st.form_submit_button("Save Changes")
@@ -595,6 +671,7 @@ if transactions:
                                    edit_type,
                                    edit_category,
                                    int(edit_shared),
+                                   edit_shared_members,
                                    edit_notes)
                     st.session_state["editing"] = False
                     st.rerun()

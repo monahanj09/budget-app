@@ -10,6 +10,7 @@ def add_recurring_transaction(
         type,
         category,
         shared,
+        shared_members,
         notes,
         start_date,
         frequency
@@ -21,14 +22,15 @@ def add_recurring_transaction(
 
     cursor.execute("""
         INSERT INTO recurring_transactions
-        (name, expected_amount, type, category, shared, notes, start_date, frequency)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        (name, expected_amount, type, category, shared, shared_members, notes, start_date, frequency)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         name,
         expected_amount,
         type,
         category,
         shared,
+        shared_members,
         notes,
         start_date,
         frequency
@@ -51,6 +53,7 @@ def get_recurring_transactions():
             type,
             category,
             shared,
+            shared_members,
             notes,
             start_date,
             frequency,
@@ -181,9 +184,9 @@ def generate_recurring_transactions(year, month):
 
     for rule in recurring_rules:
 
-        if rule[9] == 1:
+        if rule[10] == 1:
 
-            occurrences = get_occurrences_for_month(rule[7], rule[8], year, month)
+            occurrences = get_occurrences_for_month(rule[8], rule[9], year, month)
 
             for occurrence in occurrences:
 
@@ -196,7 +199,8 @@ def generate_recurring_transactions(year, month):
                         transaction_type = rule[3],
                         category = rule[4],
                         shared = rule[5],
-                        notes = rule[6],
+                        shared_members = rule[6],
+                        notes = rule[7],
                         recurring_rule_id = rule[0],
                         recurring_occurrence_date = occurrence.isoformat()
                     )
