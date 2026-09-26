@@ -1,6 +1,11 @@
 def analyze_cashflow(daily_balances):
+
+    ## Any negative EOD balance constitutes a shortfall
+
     if (daily_balances["End Balance"] < 0).any():
         negative_days = daily_balances[daily_balances["End Balance"] < 0]
+
+        ## Calculate date when shortfall occurs
 
         first_negative_day = negative_days.iloc[0]
         first_negative_date = first_negative_day["Date"]
@@ -8,6 +13,9 @@ def analyze_cashflow(daily_balances):
         lowest_balance = daily_balances["End Balance"].min()
 
         minimum_cash_needed = abs(lowest_balance)
+
+        ## Recovery refers to date on which initial shortfall will naturally correct itself by account
+        ## balance returning to 0 or higher
 
         recovery_days = daily_balances[(daily_balances["Date"] > first_negative_date) 
                                        & 

@@ -43,6 +43,16 @@ def create_tables():
         """)
 
     cursor.execute("""
+            CREATE TABLE IF NOT EXISTS category_budgets (
+                year INTEGER NOT NULL,
+                month INTEGER NOT NULL,
+                category TEXT NOT NULL,
+                amount REAL NOT NULL,
+                PRIMARY KEY (year, month, category)
+            )
+        """)
+
+    cursor.execute("""
             CREATE TABLE IF NOT EXISTS recurring_transactions (
                 id INTEGER primary key AUTOINCREMENT,
                 name TEXT NOT NULL,
@@ -64,6 +74,8 @@ def create_tables():
             value TEXT
             )
         """)
+
+    ## Schema migration for existing databases, new columns added without destroying data
 
     cursor.execute("PRAGMA table_info(transactions)")
     columns = cursor.fetchall()
@@ -126,6 +138,8 @@ def add_budget_period_columns():
 
 def set_starting_balance(year, month, starting_balance):
 
+    ## ON CONFLICT used to insert or update monthly starting balance
+
     connection = get_connection()
     cursor = connection.cursor()
 
@@ -186,6 +200,9 @@ def get_setting(key):
         return None
 
 def set_setting(key, value):
+
+    ## Update an existing setting rather than duplicating it
+
     connection = get_connection()
     cursor = connection.cursor()
 
@@ -205,3 +222,55 @@ def set_setting(key, value):
 
     connection.commit()
     connection.close()
+
+def set_category_budget(year, month, category, amount):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+    """
+    INSERT INTO category_budgets
+    (year, month, category, amount)
+    VALUES (?, ?, ?, ?)
+        
+    ON CONFLICT(year, month, category)
+    DO UPDATE SET amount = excluded.amount
+    """,
+    (
+        year,
+        month,
+        category,
+        amount
+    )
+    )
+
+    connection.commit()
+    connection.close()
+
+def get_category_budgets(year, month):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT category, amount
+        FROM category_budgets
+        WHERE year = ? AND month = ?
+        """,
+        (year, month)
+    )
+
+    results = cursor.fetchall()
+    connection.close()
+
+    category_budgets = {}
+
+    for result in results:
+        category = result[0]
+        amount = result[1]
+
+        category_budgets[category] = amount
+
+    return category_budgets

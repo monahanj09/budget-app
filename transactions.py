@@ -17,6 +17,8 @@ def add_transaction(
     connection = get_connection()
     cursor = connection.cursor()
 
+    ## shared_members is nullable for non-shared transactions and legacy compatibility
+
     cursor.execute("""
         INSERT INTO transactions
         (date, name, amount, type, category, shared, shared_members, notes, recurring_rule_id, recurring_occurrence_date)
@@ -45,6 +47,8 @@ def get_transactions(year, month):
     cursor = connection.cursor()
 
     month_string = f"{year}-{month:02d}"
+
+    ## substr(date, 1, 7) filters isoformatted dates by YYYY-MM
 
     cursor.execute("""
         SELECT

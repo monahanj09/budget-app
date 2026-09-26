@@ -8,7 +8,9 @@ from database import (
     set_starting_balance,
     get_starting_balance,
     get_setting,
-    set_setting
+    set_setting,
+    set_category_budget,
+    get_category_budgets
 )
 
 from transactions import(
@@ -28,6 +30,12 @@ from recurring import(
 
 from cashflow import(
     analyze_cashflow
+)
+
+from reporting import(
+    calculate_category_spending,
+    calculate_budget_vs_actual,
+    calculate_budget_summary
 )
 
 # Create database tables when the app starts
@@ -63,6 +71,8 @@ categories = [
     "Shared Contributions",
     "Other"
 ]
+
+## Have user enter household size setting for future shared expense calculations
 
 household_size_setting = get_setting("household_size")
 
@@ -100,6 +110,7 @@ else:
 st.header("Add Transaction")
 
 ## Create the add transaction form(s) and store all input in requisite variables
+## Shared transaction checkbox outside normal form due to lack of dynamic form changes based on checkbox states
 
 transaction_shared = False
 transaction_shared_members = None
@@ -130,6 +141,8 @@ with st.form("transaction_form"):
     transaction_notes = st.text_area("Notes:")
 
     submitted = st.form_submit_button("Add Transaction")
+
+## Shared transaction checkbox outside normal form due to lack of dynamic form changes based on checkbox states
 
 st.header("Add Recurring Transaction")
 
@@ -203,6 +216,8 @@ if recur_submitted:
                                   frequency=recur_frequency)
         st.success("Recurring transaction created successfully.")
 
+## Recurring rule dataframe for displaying/managing recurring rules, rather than monthly generated transactions
+
 st.header("Recurring Transactions")
 
 recurring_transactions = get_recurring_transactions()
@@ -273,6 +288,41 @@ selected_month = st.selectbox("Month:", range(1, 13),
 
 selected_year = st.number_input("Year:", min_value=2022, value=date.today().year)
 
+## Category budget management
+
+st.subheader("Category Budgets")
+
+category_budgets = get_category_budgets(selected_year, selected_month)
+
+budget_categories = [
+    category for category in categories
+    if category not in ["Paycheck", "Shared Contributions"]
+]
+
+selected_budget_category = st.selectbox("Budget Category:", budget_categories)
+
+current_budget_amount = category_budgets.get(selected_budget_category, 0.0)
+
+entered_budget_amount = st.number_input("Monthly Budget ($):",
+                                        min_value=0.0,
+                                        value=float(current_budget_amount),
+                                        step=10.0,
+                                        format="%.2f")
+
+save_category_budget = st.button("Save Category Budget")
+
+if save_category_budget:
+
+    if entered_budget_amount <= 0:
+
+        st.error("Category budget must be at least $0.01")
+
+    else:
+
+        set_category_budget(selected_year, selected_month, selected_budget_category, entered_budget_amount)
+
+        st.rerun()
+
 ## Define starting monthly balance
 
 starting_balance = get_starting_balance(selected_year, selected_month)
@@ -291,14 +341,102 @@ if save_starting_balance:
     )
     st.rerun()
 
+## Generate recurring transactions for currently displayed month
+
 generate_recurring_transactions(selected_year, selected_month)
 
 transactions = get_transactions(selected_year, selected_month)
+
+category_spending = calculate_category_spending(transactions)
+
+budget_report = calculate_budget_vs_actual(category_budgets, category_spending)
+
+budget_summary = calculate_budget_summary(budget_report)
+
+if budget_report:
+
+    budget_dataframe = pd.DataFrame.from_dict(
+        budget_report,
+        orient="index"
+    )
+
+    budget_dataframe = budget_dataframe.reset_index()
+
+    budget_dataframe = budget_dataframe.rename(
+        columns={
+            "index": "Category",
+            "budget": "Budget",
+            "actual": "Actual",
+            "remaining": "Remaining"
+        }
+    )
+
+    budget_dataframe["% Used"] = (budget_dataframe["Actual"]/budget_dataframe["Budget"])*100
+
+    st.subheader("Budget Overview")
+
+    budget_column1, budget_column2, budget_column3, budget_column4 = st.columns(4)
+
+    if budget_summary["remaining"] < 0:
+        formatted_budget_remaining = f"-${abs(budget_summary['remaining']):,.2f}"
+    else:
+        formatted_budget_remaining = f"${budget_summary['remaining']:,.2f}"
+
+    st.dataframe(
+        budget_dataframe,
+        hide_index=True,
+        column_config={
+            "Budget": st.column_config.NumberColumn(
+                "Budget",
+                format="$%.2f"
+            ),
+            "Actual": st.column_config.NumberColumn(
+                "Actual",
+                format="$%.2f"
+            ),
+            "Remaining": st.column_config.NumberColumn(
+                "Remaining",
+                format="$%.2f"
+            ),
+            "% Used": st.column_config.NumberColumn(
+                "% Used",
+                format="$%.1f%%"
+            )
+        }
+    )
+
+    budget_column1.metric(
+    "Total Budget:",
+    f"${budget_summary['total_budget']:,.2f}"
+    )
+
+    budget_column2.metric(
+    "Budgeted Spending:",
+    f"${budget_summary['total_actual']:,.2f}"
+    )
+
+    budget_column3.metric(
+    "Budget Remaining:",
+    formatted_budget_remaining
+    )
+
+    budget_column4.metric(
+    "Categories Over Budget:",
+    budget_summary["categories_over_budget"]
+    )
+
+
+
+else:
+
+    st.info("No category budgets have been established for this month.")
 
 last_day = calendar.monthrange(selected_year, selected_month)[1]
 month_start = date(selected_year, selected_month, 1)
 month_end = date(selected_year, selected_month, last_day)
 all_dates = pd.date_range(start=month_start, end=month_end)
+
+## Construct calendar, aggregate transaction cash flow by date, merge, and cum-sum from starting balance
 
 daily_balances = pd.DataFrame({"Date": all_dates})
 
@@ -366,6 +504,8 @@ if transactions:
     expenses = dataframe[dataframe["Type"] == "Expense"] ["Amount ($)"].sum()
     reimbursements = dataframe[dataframe["Type"] == "Reimbursement"]["Amount ($)"].sum()
 
+    ## Legacy datahandling for transactions before shared_members was created
+
     incomplete_shared_expenses = dataframe[
         (dataframe["Type"] == "Expense") & 
         (dataframe["Shared"] == "Yes") &
@@ -392,6 +532,8 @@ if transactions:
         (dataframe["Shared"] == "Yes") &
         (dataframe["Shared Members"] > 1)
     ].copy()
+
+    ## User share represents share of shared expenses belonging to user of app, Others share represents money owed to User
 
     shared_expense_dataframe["User Share"] = shared_expense_dataframe["Amount ($)"] / shared_expense_dataframe["Shared Members"]
     shared_expense_dataframe["Others Share"] = shared_expense_dataframe["Amount ($)"] - shared_expense_dataframe["User Share"]
@@ -429,6 +571,8 @@ else:
 column1, column2, column3, column4 = st.columns(4)
 column5, column6, column7 = st.columns(3)
 column8, column9 = st.columns(2)
+
+## Converts results from analyze_cashflow() into user-facing warning with different output depending on account recovery
 
 if cashflow_analysis["has_shortfall"]:
 
@@ -566,7 +710,7 @@ if transactions:
     deletable_ids = []
     recurring_transaction_ids = []
 
-    ## Delete unnecessary entries
+    ## Delete unnecessary entries, protect generated recurring transactions from deletion so the recurring-rule remains consistent
 
     for row_position in selected_rows:
         transaction_id = int(dataframe.iloc[row_position]["ID"])
@@ -612,6 +756,7 @@ if transactions:
 
             edit_transaction = dataframe[dataframe["ID"] == st.session_state["edit_id"]].iloc[0]
 
+            ## Protect old transactions from having their split erroneously modified if household size changes
 
             if pd.isna(edit_transaction["Shared Members"]):
                 current_shared_members = household_size

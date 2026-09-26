@@ -69,6 +69,9 @@ def get_recurring_transactions():
     return recurring_transactions
 
 def delete_recurring_transaction(rule_id):
+
+    ## Generated transactions deleted, then the rule itself
+
     connection = get_connection()
     cursor = connection.cursor()
 
@@ -140,6 +143,9 @@ def get_occurrences_for_month(start_date, frequency, year, month):
         calendar.monthrange(year, month)[1]
     )
 
+    ## Weekly and biweekly rules advance from starting date in fixed day intervals, preserving
+    ## recurring cadence across monthly boundaries
+
     current_date = start_date
 
     if frequency == "Weekly":
@@ -159,6 +165,8 @@ def get_occurrences_for_month(start_date, frequency, year, month):
 
             current_date += timedelta(days=interval_days)
 
+    
+    ## Month-end handling to account for dates that don't exist in shorter months (e.g. Feb 30th, etc)
 
     if frequency == "Monthly":
 
@@ -181,6 +189,9 @@ def generate_recurring_transactions(year, month):
     """Generate missing recurring transactions for a specified month."""
 
     recurring_rules = get_recurring_transactions()
+
+    ## Skip inactive rules, calculated occurrences, create only occurrences that don't already exist/haven't
+    ## already been generated
 
     for rule in recurring_rules:
 
