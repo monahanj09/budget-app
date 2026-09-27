@@ -96,6 +96,7 @@ def compare_monthly_spending(current_spending, previous_spending):
             "previous": previous_amount,
             "change": spending_change,
             "percent_change": percentage_change
+            
         }
 
     return monthly_comparison
