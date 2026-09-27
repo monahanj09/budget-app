@@ -68,3 +68,34 @@ def calculate_budget_summary(budget_report):
     }
 
     return budget_summary
+
+def compare_monthly_spending(current_spending, previous_spending):
+    """Compare category spending between two months."""
+
+    monthly_comparison = {}
+
+    all_categories = set(current_spending) | set(previous_spending)
+
+    for category in all_categories:
+
+        current_amount = current_spending.get(category, 0.0)
+        previous_amount = previous_spending.get(category, 0.0)
+
+        spending_change = current_amount - previous_amount
+
+        if previous_amount > 0:
+
+            percentage_change = (spending_change / previous_amount) * 100
+
+        else:
+
+            percentage_change = None
+
+        monthly_comparison[category] = {
+            "current": current_amount,
+            "previous": previous_amount,
+            "change": spending_change,
+            "percent_change": percentage_change
+        }
+
+    return monthly_comparison

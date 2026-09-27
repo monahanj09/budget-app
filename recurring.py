@@ -193,6 +193,7 @@ def generate_recurring_transactions(year, month):
     ## Skip inactive rules, calculated occurrences, create only occurrences that don't already exist/haven't
     ## already been generated
 
+
     for rule in recurring_rules:
 
         if rule[10] == 1:

@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import calendar
-from datetime import date
+from datetime import date, timedelta
 
 from database import (
     create_tables,
@@ -35,7 +35,8 @@ from cashflow import(
 from reporting import(
     calculate_category_spending,
     calculate_budget_vs_actual,
-    calculate_budget_summary
+    calculate_budget_summary,
+    compare_monthly_spending
 )
 
 # Create database tables when the app starts
@@ -349,6 +350,70 @@ transactions = get_transactions(selected_year, selected_month)
 
 category_spending = calculate_category_spending(transactions)
 
+current_month_start = date(
+    selected_year,
+    selected_month,
+    1
+)
+
+previous_month_date = current_month_start - timedelta(days=1)
+
+previous_transactions = get_transactions(
+    previous_month_date.year,
+    previous_month_date.month
+)
+
+previous_category_spending = calculate_category_spending(previous_transactions)
+
+monthly_comparison = compare_monthly_spending(
+    category_spending,
+    previous_category_spending
+)
+
+if monthly_comparison:
+
+    monthly_comparison_dataframe = pd.DataFrame.from_dict(
+        monthly_comparison,
+        orient="index"
+    )
+
+    monthly_comparison_dataframe = monthly_comparison_dataframe.reset_index()
+
+    monthly_comparison_dataframe = monthly_comparison_dataframe.rename(
+        columns={
+            "index": "Category",
+            "current": "Current Month",
+            "previous": "Previous Month",
+            "change": "Change",
+            "percent_change": "% Change"
+        }
+    )
+
+    st.subheader("Month-over-Month Spending")
+
+    st.dataframe(
+        monthly_comparison_dataframe,
+        hide_index=True,
+        column_config={
+            "Current Month": st.column_config.NumberColumn(
+                "Current Month",
+                format="$%.2f"
+            ),
+            "Previous Month": st.column_config.NumberColumn(
+                "Previous Month",
+                format="$%.2f"
+            ),
+            "Change": st.column_config.NumberColumn(
+                "Change",
+                format="$%.2f"
+            ),
+            "% Change": st.column_config.NumberColumn(
+                "% Change",
+                format="%.1f%%"
+            )
+        }
+    )
+
 budget_report = calculate_budget_vs_actual(category_budgets, category_spending)
 
 budget_summary = calculate_budget_summary(budget_report)
@@ -400,7 +465,7 @@ if budget_report:
             ),
             "% Used": st.column_config.NumberColumn(
                 "% Used",
-                format="$%.1f%%"
+                format="%.1f%%"
             )
         }
     )
@@ -522,9 +587,9 @@ if transactions:
             transaction_word = "transactions"
 
         st.warning(
-            f"{incomplete_shared_count} shared {transaction_word} are missing split information. "
-            f"Edit these {transaction_word} and specify how many people shared the expense. "
-            f"They are excluded from Shared Expenses and Expected Reimbursement calculations until corrected."
+            f"{incomplete_shared_count} shared expense(s) are missing split information. "
+            "Add the number of people sharing each expense to include them in shared expense "
+            "and reimbursement calculations."
         )
 
     shared_expense_dataframe = dataframe[
