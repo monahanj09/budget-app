@@ -150,7 +150,7 @@ def get_occurrences_for_month(start_date, frequency, year, month):
 
     if frequency == "Weekly":
         interval_days = 7
-    elif frequency == "Biweekly":
+    elif frequency == "Bi-weekly":
         interval_days = 14
     else:
         interval_days=None

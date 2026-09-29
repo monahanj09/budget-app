@@ -1,4 +1,5 @@
 from database import get_connection
+import pandas as pd
 
 def add_transaction(
     date,
@@ -122,3 +123,43 @@ def update_transaction(
 
         connection.commit()
         connection.close()
+
+def prepare_transaction_dataframe(transactions):
+    """Convert transaction records into a formatted DataFrame."""
+
+    if not transactions:
+        return None
+
+    dataframe = pd.DataFrame(
+        transactions,
+        columns=[
+            "ID",
+            "Date",
+            "Description",
+            "Amount ($)",
+            "Type",
+            "Category",
+            "Shared",
+            "Shared Members",
+            "Notes",
+            "Recurring Rule ID"
+        ]
+    )
+
+    dataframe["Cash Flow"] = dataframe.apply(
+        lambda row:
+            -row["Amount ($)"]
+            if row["Type"] == "Expense"
+            else row["Amount ($)"],
+        axis=1
+    )
+
+    dataframe = dataframe.sort_values(
+        by=["Date", "ID"]
+    ).reset_index(drop=True)
+
+    dataframe["Date"] = pd.to_datetime(
+        dataframe["Date"]
+    )
+
+    return dataframe

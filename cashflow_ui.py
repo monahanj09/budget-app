@@ -4,6 +4,7 @@ import calendar
 from datetime import date
 
 from cashflow import analyze_cashflow
+from transactions import prepare_transaction_dataframe
 
 
 def render_cashflow_dashboard(
@@ -45,37 +46,7 @@ def render_cashflow_dashboard(
 
     if transactions:
 
-        dataframe = pd.DataFrame(
-            transactions,
-            columns=[
-                "ID",
-                "Date",
-                "Description",
-                "Amount ($)",
-                "Type",
-                "Category",
-                "Shared",
-                "Shared Members",
-                "Notes",
-                "Recurring Rule ID"
-            ]
-        )
-
-        dataframe["Cash Flow"] = dataframe.apply(
-            lambda row:
-                -row["Amount ($)"]
-                if row["Type"] == "Expense"
-                else row["Amount ($)"],
-            axis=1
-        )
-
-        dataframe = dataframe.sort_values(
-            by=["Date", "ID"]
-        ).reset_index(drop=True)
-
-        dataframe["Date"] = pd.to_datetime(
-            dataframe["Date"]
-        )
+        dataframe = prepare_transaction_dataframe(transactions)
 
         daily_transaction_totals = (
             dataframe.groupby("Date")["Cash Flow"]

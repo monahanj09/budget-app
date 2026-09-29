@@ -15,6 +15,12 @@ def render_transaction_management(
 ):
     """Render transaction table, deletion controls, and transaction editing."""
 
+    if "editing" not in st.session_state:
+        st.session_state["editing"] = False
+
+    if "edit_id" not in st.session_state:
+        st.session_state["edit_id"] = None
+
     if transactions:
 
         table_event = st.dataframe(
@@ -105,16 +111,18 @@ def render_transaction_management(
 
         if st.session_state["editing"]:
 
-            if st.session_state["edit_id"] not in selected_ids:
+            edit_matches = dataframe[
+                dataframe["ID"] == st.session_state["edit_id"]
+            ]
+
+            if edit_matches.empty:
 
                 st.session_state["editing"] = False
+                st.session_state["edit_id"] = None
 
             else:
 
-                edit_transaction = dataframe[
-                    dataframe["ID"]
-                    == st.session_state["edit_id"]
-                ].iloc[0]
+                edit_transaction = edit_matches.iloc[0]
 
                 # Protect older transactions from having their split
                 # erroneously modified if household size changes.
@@ -147,7 +155,8 @@ def render_transaction_management(
                         "Shared Expense",
                         value=(
                             edit_transaction["Shared"] == "Yes"
-                        )
+                        ),
+                        key="edit_shared_expense"
                     )
 
                     if edit_shared:
@@ -247,5 +256,6 @@ def render_transaction_management(
                         )
 
                         st.session_state["editing"] = False
+                        st.session_state["edit_id"] = None
 
                         st.rerun()
