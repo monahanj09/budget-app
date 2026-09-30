@@ -13,7 +13,11 @@ from recurring import (
 def render_recurring_transactions(household_size, categories):
     """Render recurring transaction creation and management."""
 
-    st.header("Recurring Transactions")
+    # ---------------------------------------------------------
+    # Add Recurring Transaction
+    # ---------------------------------------------------------
+
+    st.header("Add Recurring Transaction")
 
     recur_shared = False
     recur_shared_members = None
@@ -28,7 +32,8 @@ def render_recurring_transactions(household_size, categories):
         if recur_shared:
 
             recur_shared_members = st.number_input(
-                "How many people split this recurring transaction? (including you)",
+                "How many people split this recurring transaction? "
+                "(including you)",
                 min_value=2,
                 max_value=household_size,
                 value=household_size,
@@ -38,7 +43,9 @@ def render_recurring_transactions(household_size, categories):
 
     with st.form("recurring_transaction_form"):
 
-        recur_name = st.text_input("Name:")
+        recur_name = st.text_input(
+            "Name:"
+        )
 
         recur_amount = st.number_input(
             "Recurring Amount:",
@@ -49,7 +56,11 @@ def render_recurring_transactions(household_size, categories):
 
         recur_type = st.radio(
             "Recurring Type:",
-            ["Expense", "Income", "Reimbursement"],
+            [
+                "Expense",
+                "Income",
+                "Reimbursement"
+            ],
             horizontal=True
         )
 
@@ -59,18 +70,31 @@ def render_recurring_transactions(household_size, categories):
             key="recur_category"
         )
 
-        recur_notes = st.text_area("Notes:", key="recur_notes")
-
-        recur_start_date = st.date_input(
-            "Start Date:",
-            value=date.today(),
-            format="MM/DD/YYYY"
+        recur_notes = st.text_area(
+            "Notes:",
+            key="recur_notes"
         )
 
-        recur_frequency = st.selectbox(
-            "Frequency:",
-            ["Monthly", "Weekly", "Bi-weekly"]
-        )
+        date_column, frequency_column = st.columns(2)
+
+        with date_column:
+
+            recur_start_date = st.date_input(
+                "Start Date:",
+                value=date.today(),
+                format="MM/DD/YYYY"
+            )
+
+        with frequency_column:
+
+            recur_frequency = st.selectbox(
+                "Frequency:",
+                [
+                    "Monthly",
+                    "Weekly",
+                    "Bi-weekly"
+                ]
+            )
 
         recur_submitted = st.form_submit_button(
             "Add Recurring Transaction"
@@ -108,7 +132,12 @@ def render_recurring_transactions(household_size, categories):
                 "Recurring transaction created successfully."
             )
 
-    # Display and manage existing recurring rules.
+    # ---------------------------------------------------------
+    # Existing Recurring Transactions
+    # ---------------------------------------------------------
+
+    st.header("Recurring Transactions")
+
     recurring_transactions = get_recurring_transactions()
 
     if recurring_transactions:
@@ -134,18 +163,22 @@ def render_recurring_transactions(household_size, categories):
             recurring_dataframe["Start Date"]
         )
 
-        recurring_dataframe["Shared"] = recurring_dataframe["Shared"].map(
-            {
-                0: "No",
-                1: "Yes"
-            }
+        recurring_dataframe["Shared"] = (
+            recurring_dataframe["Shared"].map(
+                {
+                    0: "No",
+                    1: "Yes"
+                }
+            )
         )
 
-        recurring_dataframe["Active"] = recurring_dataframe["Active"].map(
-            {
-                0: "No",
-                1: "Yes"
-            }
+        recurring_dataframe["Active"] = (
+            recurring_dataframe["Active"].map(
+                {
+                    0: "No",
+                    1: "Yes"
+                }
+            )
         )
 
         recurring_table = st.dataframe(
@@ -168,31 +201,52 @@ def render_recurring_transactions(household_size, categories):
 
         if recurring_table.selection.rows:
 
-            selected_recur_rows = recurring_table.selection.rows
-            selected_rules = recurring_dataframe.iloc[selected_recur_rows]
-            selected_rule_ids = selected_rules["ID"].tolist()
+            selected_recur_rows = (
+                recurring_table.selection.rows
+            )
+
+            selected_rules = recurring_dataframe.iloc[
+                selected_recur_rows
+            ]
+
+            selected_rule_ids = (
+                selected_rules["ID"].tolist()
+            )
 
             if st.button("Delete Selected"):
 
                 for rule_id in selected_rule_ids:
-                    delete_recurring_transaction(rule_id)
+
+                    delete_recurring_transaction(
+                        rule_id
+                    )
 
                 st.rerun()
 
             if st.button("Deactivate Selected"):
 
                 for rule_id in selected_rule_ids:
-                    set_recurring_transaction_active(rule_id, 0)
+
+                    set_recurring_transaction_active(
+                        rule_id,
+                        0
+                    )
 
                 st.rerun()
 
             if st.button("Reactivate Selected"):
 
                 for rule_id in selected_rule_ids:
-                    set_recurring_transaction_active(rule_id, 1)
+
+                    set_recurring_transaction_active(
+                        rule_id,
+                        1
+                    )
 
                 st.rerun()
 
     else:
 
-        st.info("No recurring transactions have been created.")
+        st.info(
+            "No recurring transactions have been created."
+        )

@@ -223,6 +223,47 @@ def set_setting(key, value):
     connection.commit()
     connection.close()
 
+def get_initial_balance():
+    """Return the configured initial account balance."""
+
+    initial_balance = get_setting("initial_balance")
+
+    if initial_balance is None:
+        return None
+
+    return float(initial_balance)
+
+
+def get_initial_balance_month():
+    """Return the year and month of the initial account balance."""
+
+    initial_year = get_setting("initial_balance_year")
+    initial_month = get_setting("initial_balance_month")
+
+    if initial_year is None or initial_month is None:
+        return None
+
+    return int(initial_year), int(initial_month)
+
+
+def set_initial_balance(year, month, balance):
+    """Save the initial balance and its anchor month."""
+
+    set_setting(
+        "initial_balance",
+        balance
+    )
+
+    set_setting(
+        "initial_balance_year",
+        year
+    )
+
+    set_setting(
+        "initial_balance_month",
+        month
+    )
+
 def set_category_budget(year, month, category, amount):
 
     connection = get_connection()

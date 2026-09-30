@@ -5,6 +5,10 @@ from datetime import date
 
 from cashflow import analyze_cashflow
 from transactions import prepare_transaction_dataframe
+from ui_components import (
+    render_metric_card,
+    render_calendar_day
+)
 
 
 def render_cashflow_dashboard(
@@ -81,34 +85,6 @@ def render_cashflow_dashboard(
 
     cashflow_analysis = analyze_cashflow(
         daily_balances
-    )
-
-    # Daily balance table.
-    daily_display = daily_balances[
-        ["Date", "Start Balance", "End Balance"]
-    ].copy()
-
-    daily_display["Date"] = (
-        daily_display["Date"].dt.strftime("%m/%d/%Y")
-    )
-
-    st.dataframe(
-        daily_display,
-        hide_index=True,
-        column_config={
-            "Date": st.column_config.DateColumn(
-                "Date",
-                format="MM/DD/YYYY"
-            ),
-            "Start Balance": st.column_config.NumberColumn(
-                "Start Balance",
-                format="$%.2f"
-            ),
-            "End Balance": st.column_config.NumberColumn(
-                "End Balance",
-                format="$%.2f"
-            )
-        }
     )
 
     # Calculate monthly totals and shared expenses.
@@ -207,6 +183,7 @@ def render_cashflow_dashboard(
         "Date"
     ]
 
+    # Format values that may be negative consistently.
     if net_cash_flow < 0:
 
         formatted_net_cash_flow = (
@@ -219,11 +196,31 @@ def render_cashflow_dashboard(
             f"${net_cash_flow:,.2f}"
         )
 
-    # Summary metrics.
-    column1, column2, column3, column4 = st.columns(4)
-    column5, column6, column7 = st.columns(3)
-    column8, column9 = st.columns(2)
+    if projected_end_balance < 0:
 
+        formatted_projected_end_balance = (
+            f"-${abs(projected_end_balance):,.2f}"
+        )
+
+    else:
+
+        formatted_projected_end_balance = (
+            f"${projected_end_balance:,.2f}"
+        )
+
+    if lowest_balance < 0:
+
+        formatted_lowest_balance = (
+            f"-${abs(lowest_balance):,.2f}"
+        )
+
+    else:
+
+        formatted_lowest_balance = (
+            f"${lowest_balance:,.2f}"
+        )
+
+    # Cash-flow warning.
     if cashflow_analysis["has_shortfall"]:
 
         first_negative_date = (
@@ -249,7 +246,7 @@ def render_cashflow_dashboard(
 
             additional_warning = (
                 "Projected recovery date: Account does not "
-                "recover before end of selected month"
+                "recover before end of selected month."
             )
 
         warning_message = (
@@ -264,50 +261,83 @@ def render_cashflow_dashboard(
 
         st.warning(warning_message)
 
-    column1.metric(
-        "Income:",
-        f"${income:,.2f}"
-    )
+    # Monthly cash-flow summary.
+    st.subheader("Monthly Cash Flow")
 
-    column2.metric(
-        "Reimbursements:",
-        f"${reimbursements:,.2f}"
-    )
+    column1, column2, column3, column4 = st.columns(4)
 
-    column3.metric(
-        "Expenses:",
-        f"${expenses:,.2f}"
-    )
+    with column1:
 
-    column4.metric(
-        "Net Cash Flow:",
-        formatted_net_cash_flow
-    )
+        render_metric_card(
+            "Income",
+            f"${income:,.2f}"
+        )
 
-    column5.metric(
-        "Projected End Balance:",
-        f"${projected_end_balance:,.2f}"
-    )
+    with column2:
 
-    column6.metric(
-        "Lowest Balance:",
-        f"${lowest_balance:,.2f}"
-    )
+        render_metric_card(
+            "Reimbursements",
+            f"${reimbursements:,.2f}"
+        )
 
-    column7.metric(
-        "Lowest Balance Date:",
-        lowest_balance_date.strftime("%m/%d/%Y")
-    )
+    with column3:
 
-    column8.metric(
-        "Shared Expenses:",
-        f"${shared_expenses:,.2f}"
-    )
+        render_metric_card(
+            "Expenses",
+            f"${expenses:,.2f}"
+        )
 
-    column9.metric(
-        "Expected Reimbursement:",
-        f"${expected_reimbursement:,.2f}"
-    )
+    with column4:
+
+        render_metric_card(
+            "Net Cash Flow",
+            formatted_net_cash_flow
+        )
+
+    # Balance forecast.
+    st.subheader("Balance Forecast")
+
+    column5, column6, column7 = st.columns(3)
+
+    with column5:
+
+        render_metric_card(
+            "Projected End Balance",
+            formatted_projected_end_balance
+        )
+
+    with column6:
+
+        render_metric_card(
+            "Lowest Balance",
+            formatted_lowest_balance
+        )
+
+    with column7:
+
+        render_metric_card(
+            "Lowest Balance Date",
+            lowest_balance_date.strftime("%m/%d/%Y")
+        )
+
+    # Shared-expense summary.
+    st.subheader("Shared Expenses")
+
+    column8, column9 = st.columns(2)
+
+    with column8:
+
+        render_metric_card(
+            "Shared Expenses",
+            f"${shared_expenses:,.2f}"
+        )
+
+    with column9:
+
+        render_metric_card(
+            "Expected Reimbursement",
+            f"${expected_reimbursement:,.2f}"
+        )
 
     # Cash-flow calendar.
     st.header("Cash Flow Calendar")
@@ -329,7 +359,18 @@ def render_cashflow_dashboard(
         weekdays
     ):
 
-        column.markdown(f"**{weekday}**")
+        column.markdown(
+            f"""
+            <div style="
+                text-align: center;
+                font-weight: bold;
+                margin-bottom: 4px;
+            ">
+                {weekday}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
     month_calendar = calendar.Calendar(
         firstweekday=6
@@ -362,69 +403,22 @@ def render_cashflow_dashboard(
                     "End Balance"
                 ].iloc[0]
 
-                with column.container(
-                    border=True,
-                    height=250
-                ):
+                if transactions:
 
-                    st.markdown(f"**{day}**")
+                    day_transactions = dataframe[
+                        dataframe["Date"] == calendar_date
+                    ]
 
-                    if transactions:
+                else:
 
-                        day_transactions = dataframe[
-                            dataframe["Date"] == calendar_date
-                        ]
+                    day_transactions = None
 
-                        for _, transaction in (
-                            day_transactions.iterrows()
-                        ):
+                with column:
 
-                            if transaction["Type"] == "Expense":
-
-                                transaction_amount = (
-                                    transaction["Amount ($)"]
-                                )
-
-                                formatted_amount = (
-                                    f"-${transaction_amount:,.2f}"
-                                )
-
-                                transaction_color = "red"
-
-                            else:
-
-                                transaction_amount = (
-                                    transaction["Amount ($)"]
-                                )
-
-                                formatted_amount = (
-                                    f"+${transaction_amount:,.2f}"
-                                )
-
-                                transaction_color = "green"
-
-                            st.markdown(
-                                f'<span style="color: '
-                                f'{transaction_color};">'
-                                f'{transaction["Description"]}: '
-                                f'{formatted_amount}</span>',
-                                unsafe_allow_html=True
-                            )
-
-                    if day_balance < 0:
-
-                        st.markdown(
-                            '<span style="color: red; '
-                            'font-weight: bold;">'
-                            f'Balance: -${abs(day_balance):,.2f}'
-                            '</span>',
-                            unsafe_allow_html=True
-                        )
-
-                    else:
-
-                        st.markdown(
-                            f"**Balance: ${day_balance:,.2f}**"
-                        )
+                    render_calendar_day(
+                        day,
+                        day_balance,
+                        day_transactions
+                    )
 
     return dataframe
